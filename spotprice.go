@@ -23,12 +23,11 @@ import (
 	"github.com/olekukonko/tablewriter"
 )
 
-type sportPriceHistory struct {
+type spotPriceHistory struct {
 	AvailabilityZone   string
 	InstanceType       string
 	ProductDescription string
 	SpotPrice          string
-	Timestamp          string
 }
 
 func printRegions() {
@@ -61,13 +60,11 @@ func getRegions() []string {
 
 const longForm = "Jan 2, 2006 at 3:04pm (MST)"
 
-func getSpotPriceHistoryOLD() string {
-	sess, _ := session.NewSession(&aws.Config{
-		Region: aws.String("us-east-1"),
-	})
-	svc := ec2.New(sess)
-	startTime, _ := time.Parse(longForm, "Mar 26, 2020 at 7:38am (EDT)")
-	endTime, _ := time.Parse(longForm, "Mar 26, 2020 at 8:38am (EDT)")
+func getSpotPriceHistory(region string) ec2.DescribeSpotPriceHistoryOutput {
+	utc, _ := time.LoadLocation("UTC")
+	endTime := time.Now().In(utc)
+	startTime := endTime.Add(-2 * time.Minute) // 2 minutes ago
+
 	input := &ec2.DescribeSpotPriceHistoryInput{
 		EndTime: &endTime,
 		InstanceTypes: []*string{
@@ -81,45 +78,11 @@ func getSpotPriceHistoryOLD() string {
 		StartTime: &startTime,
 	}
 
-	result, err := svc.DescribeSpotPriceHistory(input)
-	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			switch aerr.Code() {
-			default:
-				fmt.Println("Error 1:", aerr.Error())
-			}
-		} else {
-			// Print the error, cast err to awserr.Error to get the Code and
-			// Message from an error.
-			fmt.Println("Error 2:", err.Error())
-		}
-		return ""
-	}
-
-	createSpotInfoArray(*result)
-	return fmt.Sprintf("%s", result)
-}
-
-func getSpotPriceHistory(region string) ec2.DescribeSpotPriceHistoryOutput {
 	sess, _ := session.NewSession(&aws.Config{
 		Region: aws.String(region),
 	})
-	svc := ec2.New(sess)
-	startTime, _ := time.Parse(longForm, "Mar 26, 2020 at 7:38am (EDT)")
-	endTime, _ := time.Parse(longForm, "Mar 26, 2020 at 8:38am (EDT)")
-	input := &ec2.DescribeSpotPriceHistoryInput{
-		EndTime: &endTime,
-		InstanceTypes: []*string{
-			aws.String("t2.nano"), aws.String("t2.micro"), aws.String("t2.small"), aws.String("t3a.nano"),
-			//aws.String("t3a.micro"), aws.String("t3a.small"), aws.String("t3.nano"), aws.String("t3.micro"),
-			//aws.String("t3.small"), aws.String("t1.micro"),
-		},
-		ProductDescriptions: []*string{
-			aws.String("Linux/UNIX (Amazon VPC)"),
-		},
-		StartTime: &startTime,
-	}
 
+	svc := ec2.New(sess)
 	result, err := svc.DescribeSpotPriceHistory(input)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
@@ -136,7 +99,6 @@ func getSpotPriceHistory(region string) ec2.DescribeSpotPriceHistoryOutput {
 		return *item
 	}
 
-	//createSpotInfoArray(*result)
 	return *result
 }
 
@@ -175,6 +137,7 @@ func inspectRegion(region string, describeCh chan [][]string) {
 
 func main() {
 	allRegions := getRegions()
+	allRegions = allRegions[:1]
 	fmt.Printf("%v\n\n", allRegions)
 
 	describeCh := make(chan [][]string)

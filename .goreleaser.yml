@@ -21,15 +21,15 @@ build:
       goarch: arm
     - goos: freebsd
       goarch: mips
-archive:
-  name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ .Arm }}"
-  format: tar.gz
-  format_overrides:
-    - goos: windows
-      format: zip
-  replacements:
-      darwin: macOS
-  wrap_in_directory: true
+archives:
+  - name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ .Arm }}"
+    format: tar.gz
+    format_overrides:
+      - goos: windows
+        format: zip
+    replacements:
+        darwin: macOS
+    wrap_in_directory: true
 checksum:
   name_template: "{{ .ProjectName }}_{{ .Version }}--sha256_checksums.txt"
 release:

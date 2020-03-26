@@ -11,11 +11,8 @@ Get AWS spot instance pricing
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
-	"log"
-	"strings"
+	"os"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -23,6 +20,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/olekukonko/tablewriter"
 )
 
 type sportPriceHistory struct {
@@ -63,7 +61,7 @@ func getRegions() []string {
 
 const longForm = "Jan 2, 2006 at 3:04pm (MST)"
 
-func getSpotPriceHistory() string {
+func getSpotPriceHistoryOLD() string {
 	sess, _ := session.NewSession(&aws.Config{
 		Region: aws.String("us-east-1"),
 	})
@@ -74,8 +72,8 @@ func getSpotPriceHistory() string {
 		EndTime: &endTime,
 		InstanceTypes: []*string{
 			aws.String("t2.nano"), aws.String("t2.micro"), aws.String("t2.small"), aws.String("t3a.nano"),
-			aws.String("t3a.micro"), aws.String("t3a.small"), aws.String("t3.nano"), aws.String("t3.micro"),
-			aws.String("t3.small"), aws.String("t1.micro"),
+			//aws.String("t3a.micro"), aws.String("t3a.small"), aws.String("t3.nano"), aws.String("t3.micro"),
+			//aws.String("t3.small"), aws.String("t1.micro"),
 		},
 		ProductDescriptions: []*string{
 			aws.String("Linux/UNIX (Amazon VPC)"),
@@ -98,38 +96,82 @@ func getSpotPriceHistory() string {
 		return ""
 	}
 
-	extractSpotInfo(*result)
+	createSpotInfoArray(*result)
 	return fmt.Sprintf("%s", result)
 }
 
-func extractSpotInfo(data ec2.DescribeSpotPriceHistoryOutput) {
-	fmt.Printf("extract: %d\n", len(data.SpotPriceHistory))
-	for i := range data.SpotPriceHistory {
-		fmt.Println("%V\n", i)
+func getSpotPriceHistory() ec2.DescribeSpotPriceHistoryOutput {
+	sess, _ := session.NewSession(&aws.Config{
+		Region: aws.String("us-east-1"),
+	})
+	svc := ec2.New(sess)
+	startTime, _ := time.Parse(longForm, "Mar 26, 2020 at 7:38am (EDT)")
+	endTime, _ := time.Parse(longForm, "Mar 26, 2020 at 8:38am (EDT)")
+	input := &ec2.DescribeSpotPriceHistoryInput{
+		EndTime: &endTime,
+		InstanceTypes: []*string{
+			aws.String("t2.nano"), aws.String("t2.micro"), aws.String("t2.small"), aws.String("t3a.nano"),
+			//aws.String("t3a.micro"), aws.String("t3a.small"), aws.String("t3.nano"), aws.String("t3.micro"),
+			//aws.String("t3.small"), aws.String("t1.micro"),
+		},
+		ProductDescriptions: []*string{
+			aws.String("Linux/UNIX (Amazon VPC)"),
+		},
+		StartTime: &startTime,
 	}
+
+	result, err := svc.DescribeSpotPriceHistory(input)
+	if err != nil {
+		if aerr, ok := err.(awserr.Error); ok {
+			switch aerr.Code() {
+			default:
+				fmt.Println("Error 1:", aerr.Error())
+			}
+		} else {
+			// Print the error, cast err to awserr.Error to get the Code and
+			// Message from an error.
+			fmt.Println("Error 2:", err.Error())
+		}
+		item := new(ec2.DescribeSpotPriceHistoryOutput)
+		return *item
+	}
+
+	//createSpotInfoArray(*result)
+	return *result
 }
 
-func spotPriceToJSON(raw string) {
-	reader := strings.NewReader(raw)
-	dec := json.NewDecoder(reader)
-	for {
-		// Read one JSON object and store it in a map.
-		var m map[string]interface{}
-		if err := dec.Decode(&m); err == io.EOF {
-			break
-		} else if err != nil {
-			log.Fatal(err)
-		}
-
-		for k := range m {
-			fmt.Println(k)
-		}
+func createSpotInfoArray(data ec2.DescribeSpotPriceHistoryOutput) [][]string {
+	//fmt.Printf("extract: %d\n", len(data.SpotPriceHistory))
+	var table [][]string
+	for i := range data.SpotPriceHistory {
+		table = append(table, []string{*data.SpotPriceHistory[i].AvailabilityZone, *data.SpotPriceHistory[i].InstanceType, *data.SpotPriceHistory[i].ProductDescription, *data.SpotPriceHistory[i].SpotPrice})
+		/*
+			fmt.Printf("AvalabilityZone : %s\n", *data.SpotPriceHistory[i].AvailabilityZone)
+			fmt.Printf("InstanceType    : %s\n", *data.SpotPriceHistory[i].InstanceType)
+			fmt.Printf("ProductDesc     : %s\n", *data.SpotPriceHistory[i].ProductDescription)
+			fmt.Printf("SpotPrice       : %s\n", *data.SpotPriceHistory[i].SpotPrice)
+			fmt.Println("==========================================================")
+		*/
 	}
+	return table
+}
+
+func outputTable(data [][]string) {
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetHeader([]string{"AZ", "Instance", "Desc", "Spot Price"})
+
+	for _, v := range data {
+		table.Append(v)
+	}
+	table.Render() // Send output
 }
 
 func main() {
 	//allRegions := getRegions()
 	//fmt.Printf("%s\n", allRegions)
-	getSpotPriceHistory()
-	//spotPriceToJSON(raw)
+	var spotResults ec2.DescribeSpotPriceHistoryOutput
+	spotResults = getSpotPriceHistory()
+	table := createSpotInfoArray(spotResults)
+	outputTable(table)
+
 }

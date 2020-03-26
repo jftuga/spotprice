@@ -100,9 +100,9 @@ func getSpotPriceHistoryOLD() string {
 	return fmt.Sprintf("%s", result)
 }
 
-func getSpotPriceHistory() ec2.DescribeSpotPriceHistoryOutput {
+func getSpotPriceHistory(region string) ec2.DescribeSpotPriceHistoryOutput {
 	sess, _ := session.NewSession(&aws.Config{
-		Region: aws.String("us-east-1"),
+		Region: aws.String(region),
 	})
 	svc := ec2.New(sess)
 	startTime, _ := time.Parse(longForm, "Mar 26, 2020 at 7:38am (EDT)")
@@ -141,7 +141,7 @@ func getSpotPriceHistory() ec2.DescribeSpotPriceHistoryOutput {
 }
 
 func createSpotInfoArray(data ec2.DescribeSpotPriceHistoryOutput) [][]string {
-	//fmt.Printf("extract: %d\n", len(data.SpotPriceHistory))
+	//fmt.Printf("length: %d\n", len(data.SpotPriceHistory))
 	var table [][]string
 	for i := range data.SpotPriceHistory {
 		table = append(table, []string{*data.SpotPriceHistory[i].AvailabilityZone, *data.SpotPriceHistory[i].InstanceType, *data.SpotPriceHistory[i].ProductDescription, *data.SpotPriceHistory[i].SpotPrice})
@@ -166,12 +166,32 @@ func outputTable(data [][]string) {
 	table.Render() // Send output
 }
 
-func main() {
-	//allRegions := getRegions()
-	//fmt.Printf("%s\n", allRegions)
+func inspectRegion(region string, describeCh chan [][]string) {
 	var spotResults ec2.DescribeSpotPriceHistoryOutput
-	spotResults = getSpotPriceHistory()
+	spotResults = getSpotPriceHistory(region)
 	table := createSpotInfoArray(spotResults)
-	outputTable(table)
+	describeCh <- table
+}
 
+func main() {
+	allRegions := getRegions()
+	fmt.Printf("%v\n\n", allRegions)
+
+	describeCh := make(chan [][]string)
+
+	timeStart := time.Now()
+	for _, region := range allRegions {
+		go inspectRegion(region, describeCh)
+	}
+
+	for range allRegions {
+		table := <-describeCh
+		if len(table) > 0 {
+			outputTable(table)
+		}
+	}
+
+	elapsed := time.Since(timeStart)
+	fmt.Println()
+	fmt.Printf("elapsed time : %v\n", elapsed)
 }

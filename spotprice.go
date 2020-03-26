@@ -11,8 +11,10 @@ Get AWS spot instance pricing
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -24,6 +26,7 @@ import (
 )
 
 type spotPriceHistory struct {
+	Region             string
 	AvailabilityZone   string
 	InstanceType       string
 	ProductDescription string
@@ -58,7 +61,7 @@ func getRegions() []string {
 
 // https://docs.aws.amazon.com/sdk-for-go/api/service/ec2/#EC2.DescribeSpotPriceHistory
 
-const longForm = "Jan 2, 2006 at 3:04pm (MST)"
+const version = "0.0.1"
 
 func getSpotPriceHistory(region string) ec2.DescribeSpotPriceHistoryOutput {
 	utc, _ := time.LoadLocation("UTC")
@@ -69,8 +72,8 @@ func getSpotPriceHistory(region string) ec2.DescribeSpotPriceHistoryOutput {
 		EndTime: &endTime,
 		InstanceTypes: []*string{
 			aws.String("t2.nano"), aws.String("t2.micro"), aws.String("t2.small"), aws.String("t3a.nano"),
-			//aws.String("t3a.micro"), aws.String("t3a.small"), aws.String("t3.nano"), aws.String("t3.micro"),
-			//aws.String("t3.small"), aws.String("t1.micro"),
+			aws.String("t3a.micro"), aws.String("t3a.small"), aws.String("t3.nano"), aws.String("t3.micro"),
+			aws.String("t3.small"), aws.String("t1.micro"),
 		},
 		ProductDescriptions: []*string{
 			aws.String("Linux/UNIX (Amazon VPC)"),
@@ -136,8 +139,27 @@ func inspectRegion(region string, describeCh chan [][]string) {
 }
 
 func main() {
+	argsVersion := flag.Bool("v", false, "show program version and then exit")
+	flag.Usage = func() {
+		pgmName := os.Args[0]
+		if strings.HasPrefix(os.Args[0], "./") {
+			pgmName = os.Args[0][2:]
+		}
+		fmt.Fprintf(os.Stderr, "\n%s: Get AWS spot instance pricing\n", pgmName)
+		fmt.Fprintf(os.Stderr, "usage: %s [options]\n", pgmName)
+		fmt.Fprintf(os.Stderr, "       (currently, only returns pricing on smaller instance types)\n")
+		fmt.Fprintf(os.Stderr, "       (required EC2 IAM Permissions: DescribeRegions, DescribeAvailabilityZones, DescribeSpotPriceHistory)\n\n")
+		flag.PrintDefaults()
+	}
+
+	flag.Parse()
+	if *argsVersion {
+		fmt.Fprintf(os.Stderr, "version %s\n", version)
+		os.Exit(1)
+	}
+
 	allRegions := getRegions()
-	fmt.Printf("%v\n\n", allRegions)
+	fmt.Printf("Regions: %v\n\n", allRegions)
 
 	describeCh := make(chan [][]string)
 

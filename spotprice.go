@@ -137,7 +137,6 @@ func inspectRegion(region string, describeCh chan [][]string) {
 
 func main() {
 	allRegions := getRegions()
-	allRegions = allRegions[:1]
 	fmt.Printf("%v\n\n", allRegions)
 
 	describeCh := make(chan [][]string)

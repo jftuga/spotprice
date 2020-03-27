@@ -1,6 +1,6 @@
 project_name: spotprice
 build:
-  main: spotprice.go
+  main: .
   binary: spotprice
   env:
     - CGO_ENABLED=0

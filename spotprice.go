@@ -11,21 +11,23 @@ Get AWS spot instance pricing
 package main
 
 import (
+	"bytes"
+	"encoding/gob"
 	"flag"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/endpoints"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/olekukonko/tablewriter"
 )
 
-type spotPriceHistory struct {
+const version = "0.0.2"
+
+type spotPriceItem struct {
 	Region             string
 	AvailabilityZone   string
 	InstanceType       string
@@ -33,97 +35,18 @@ type spotPriceHistory struct {
 	SpotPrice          string
 }
 
-func printRegions() {
-	p := endpoints.AwsPartition()
-	fmt.Printf("partition: %v\n\n", p)
-
-	fmt.Println("Regions for", p.ID())
-	for id := range p.Regions() {
-		fmt.Println("*", id)
+func outputTable(allItems []spotPriceItem) {
+	if 0 == len(allItems) {
+		fmt.Fprintf(os.Stderr, "\n\nError: No spot instances found.\n")
+		os.Exit(1)
 	}
-
-	fmt.Println()
-	fmt.Println("Services for", p.ID())
-	fmt.Println()
-	for id := range p.Services() {
-		fmt.Println("*", id)
+	var data [][]string
+	for _, i := range allItems {
+		item := []string{i.Region, i.AvailabilityZone, i.InstanceType, i.ProductDescription, i.SpotPrice}
+		data = append(data, item)
 	}
-}
-
-func getRegions() []string {
-	p := endpoints.AwsPartition()
-	var regions []string
-	for id := range p.Regions() {
-		regions = append(regions, id)
-	}
-	return regions
-}
-
-// https://docs.aws.amazon.com/sdk-for-go/api/service/ec2/#EC2.DescribeSpotPriceHistory
-
-const version = "0.0.1"
-
-func getSpotPriceHistory(region string) ec2.DescribeSpotPriceHistoryOutput {
-	utc, _ := time.LoadLocation("UTC")
-	endTime := time.Now().In(utc)
-	startTime := endTime.Add(-2 * time.Minute) // 2 minutes ago
-
-	input := &ec2.DescribeSpotPriceHistoryInput{
-		EndTime: &endTime,
-		InstanceTypes: []*string{
-			aws.String("t2.nano"), aws.String("t2.micro"), aws.String("t2.small"), aws.String("t3a.nano"),
-			aws.String("t3a.micro"), aws.String("t3a.small"), aws.String("t3.nano"), aws.String("t3.micro"),
-			aws.String("t3.small"), aws.String("t1.micro"),
-		},
-		ProductDescriptions: []*string{
-			aws.String("Linux/UNIX (Amazon VPC)"),
-		},
-		StartTime: &startTime,
-	}
-
-	sess, _ := session.NewSession(&aws.Config{
-		Region: aws.String(region),
-	})
-
-	svc := ec2.New(sess)
-	result, err := svc.DescribeSpotPriceHistory(input)
-	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			switch aerr.Code() {
-			default:
-				fmt.Println("Error 1:", aerr.Error())
-			}
-		} else {
-			// Print the error, cast err to awserr.Error to get the Code and
-			// Message from an error.
-			fmt.Println("Error 2:", err.Error())
-		}
-		item := new(ec2.DescribeSpotPriceHistoryOutput)
-		return *item
-	}
-
-	return *result
-}
-
-func createSpotInfoArray(data ec2.DescribeSpotPriceHistoryOutput) [][]string {
-	//fmt.Printf("length: %d\n", len(data.SpotPriceHistory))
-	var table [][]string
-	for i := range data.SpotPriceHistory {
-		table = append(table, []string{*data.SpotPriceHistory[i].AvailabilityZone, *data.SpotPriceHistory[i].InstanceType, *data.SpotPriceHistory[i].ProductDescription, *data.SpotPriceHistory[i].SpotPrice})
-		/*
-			fmt.Printf("AvalabilityZone : %s\n", *data.SpotPriceHistory[i].AvailabilityZone)
-			fmt.Printf("InstanceType    : %s\n", *data.SpotPriceHistory[i].InstanceType)
-			fmt.Printf("ProductDesc     : %s\n", *data.SpotPriceHistory[i].ProductDescription)
-			fmt.Printf("SpotPrice       : %s\n", *data.SpotPriceHistory[i].SpotPrice)
-			fmt.Println("==========================================================")
-		*/
-	}
-	return table
-}
-
-func outputTable(data [][]string) {
 	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"AZ", "Instance", "Desc", "Spot Price"})
+	table.SetHeader([]string{"Region", "AZ", "Instance", "Desc", "Spot Price"})
 
 	for _, v := range data {
 		table.Append(v)
@@ -131,15 +54,25 @@ func outputTable(data [][]string) {
 	table.Render() // Send output
 }
 
-func inspectRegion(region string, describeCh chan [][]string) {
+func inspectRegion(region string, instanceTypes string, describeCh chan []spotPriceItem) {
+	var vmTypes []string
+	vmTypes = strings.Split(instanceTypes, ",")
 	var spotResults ec2.DescribeSpotPriceHistoryOutput
-	spotResults = getSpotPriceHistory(region)
-	table := createSpotInfoArray(spotResults)
-	describeCh <- table
+	spotResults = getSpotPriceHistory(region, vmTypes)
+	_, items := createSpotInfoArray(region, spotResults)
+	//fmt.Println("items:", len(items))
+	describeCh <- items
 }
 
 func main() {
 	argsVersion := flag.Bool("v", false, "show program version and then exit")
+	argsDebug := flag.Bool("d", false, "run in debug mode")
+	argsRegion := flag.String("reg", "", "A comma-separated list of regular-expressions to match regions (eg: us-*)")
+	//argsAZ := flag.String("az", "", "a regular-expression to match AZs")
+	argsInst := flag.String("inst", "", "A comma-separated list of exact Instance Type names (eg: t2.small,t3a.micro,c5.large")
+	//argsProd := flag.String("prod", "", "A comma-separated list of exact Instance Type names (eg: Windows,Linux/UNIX,SUSE Linux,Red Hat Enterprise Linux")
+	//argsOutput := flag.String("out", "", "Set output to 'csv' or 'json'")
+
 	flag.Usage = func() {
 		pgmName := os.Args[0]
 		if strings.HasPrefix(os.Args[0], "./") {
@@ -147,7 +80,6 @@ func main() {
 		}
 		fmt.Fprintf(os.Stderr, "\n%s: Get AWS spot instance pricing\n", pgmName)
 		fmt.Fprintf(os.Stderr, "usage: %s [options]\n", pgmName)
-		fmt.Fprintf(os.Stderr, "       (currently, only returns pricing on smaller instance types)\n")
 		fmt.Fprintf(os.Stderr, "       (required EC2 IAM Permissions: DescribeRegions, DescribeAvailabilityZones, DescribeSpotPriceHistory)\n\n")
 		flag.PrintDefaults()
 	}
@@ -158,22 +90,85 @@ func main() {
 		os.Exit(1)
 	}
 
-	allRegions := getRegions()
-	fmt.Printf("Regions: %v\n\n", allRegions)
+	if 0 == len(*argsRegion) && 0 == len(*argsInst) {
+		flag.Usage()
+		os.Exit(1)
+	}
 
-	describeCh := make(chan [][]string)
+	if 0 == len(*argsInst) {
+		fmt.Fprintf(os.Stderr, "\nThe -inst option is required.\nThis limitation will be removed in a future release.\n\n")
+		flag.Usage()
+		os.Exit(1)
+	}
 
 	timeStart := time.Now()
-	for _, region := range allRegions {
-		go inspectRegion(region, describeCh)
+	//*argsDebug = true
+
+	var allSpotsAllRegions []spotPriceItem
+
+	allRegions := getDesiredRegions(*argsRegion)
+	//allRegions = allRegions[:3]
+	//fmt.Printf("Regions: %v\n\n", allRegions)
+	if 0 == len(allRegions) {
+		fmt.Fprintf(os.Stderr, "\n\nError: No matching AWS regions.\n")
+		os.Exit(1)
 	}
 
-	for range allRegions {
-		table := <-describeCh
-		if len(table) > 0 {
-			outputTable(table)
+	if !*argsDebug {
+		describeCh := make(chan []spotPriceItem)
+		for _, region := range allRegions {
+			go inspectRegion(region, *argsInst, describeCh)
+		}
+
+		for range allRegions {
+			table := <-describeCh
+			if len(table) > 0 {
+				for _, t := range table {
+					allSpotsAllRegions = append(allSpotsAllRegions, t)
+				}
+			}
 		}
 	}
+
+	if !*argsDebug {
+		var bufOut bytes.Buffer
+		enc := gob.NewEncoder(&bufOut)
+		err := enc.Encode(allSpotsAllRegions)
+		if err != nil {
+			log.Fatal("encode error:", err)
+			return
+		}
+
+		err = ioutil.WriteFile("current.dat", bufOut.Bytes(), 0600)
+		if err != nil {
+			log.Fatal("WriteFile error:", err)
+			return
+		}
+	} else {
+		bufIn, err := ioutil.ReadFile("current.dat")
+		if err != nil {
+			log.Fatal("ReadFile error:", err)
+			return
+		}
+		//fmt.Println("bufIn:", len(bufIn))
+
+		z := bytes.NewBuffer(bufIn)
+		dec := gob.NewDecoder(z)
+		err = dec.Decode(&allSpotsAllRegions)
+		if err != nil {
+			log.Fatal("decode error 1:", err)
+		}
+	}
+
+	//fmt.Println("ok")
+
+	//fmt.Printf("%v\n", allSpotsAllRegions)
+	//sortRegion(allSpotsAllRegions, true)
+
+	sortAvailabilityZone(allSpotsAllRegions, false)
+	sortSpotPrice(allSpotsAllRegions, true)
+
+	outputTable(allSpotsAllRegions)
 
 	elapsed := time.Since(timeStart)
 	fmt.Println()

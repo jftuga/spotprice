@@ -1,7 +1,7 @@
 # spotprice
 Get AWS spot instance pricing
 
-
+The [Releases Page](https://github.com/jftuga/spotprice/releases) contains binaries for Windows, MacOS, Linux and FreeBSD.
 
 ### Usage
 
@@ -26,25 +26,39 @@ usage: spotprice [options]
 ### Example output
 
 ```
-+------------+----------+------------+------------+
-|     AZ     | INSTANCE |    DESC    | SPOT PRICE |
-+------------+----------+------------+------------+
-| us-east-1f | t2.small | Linux/UNIX |   0.007900 |
-| us-east-1a | t3a.nano | Linux/UNIX |   0.002200 |
-| us-east-1f | t3a.nano | Linux/UNIX |   0.001800 |
-| us-east-1c | t3a.nano | Linux/UNIX |   0.001800 |
-| us-east-1a | t2.small | Linux/UNIX |   0.006900 |
-| us-east-1d | t2.small | Linux/UNIX |   0.006900 |
-| us-east-1e | t2.small | Linux/UNIX |   0.006900 |
-| us-east-1c | t2.small | Linux/UNIX |   0.006900 |
-| us-east-1b | t3a.nano | Linux/UNIX |   0.001500 |
-| us-east-1d | t3a.nano | Linux/UNIX |   0.002100 |
-| us-east-1a | t2.micro | Linux/UNIX |   0.003500 |
-| us-east-1f | t2.micro | Linux/UNIX |   0.003500 |
-| us-east-1d | t2.micro | Linux/UNIX |   0.003500 |
-| us-east-1e | t2.micro | Linux/UNIX |   0.003500 |
-| us-east-1c | t2.micro | Linux/UNIX |   0.003500 |
-| us-east-1b | t2.micro | Linux/UNIX |   0.003500 |
-| us-east-1b | t2.small | Linux/UNIX |   0.007700 |
-+------------+----------+------------+------------+
+
+spotprice.exe -reg us -inst t2.micro,t2.small
+
++-----------+------------+----------+------------+------------+
+|  REGION   |     AZ     | INSTANCE |    DESC    | SPOT PRICE |
++-----------+------------+----------+------------+------------+
+| us-west-2 | us-west-2c | t2.micro | Linux/UNIX |   0.003500 |
+| us-west-2 | us-west-2b | t2.micro | Linux/UNIX |   0.003500 |
+| us-west-2 | us-west-2a | t2.micro | Linux/UNIX |   0.003500 |
+| us-east-2 | us-east-2c | t2.micro | Linux/UNIX |   0.003500 |
+| us-east-2 | us-east-2b | t2.micro | Linux/UNIX |   0.003500 |
+| us-east-2 | us-east-2a | t2.micro | Linux/UNIX |   0.003500 |
+| us-east-1 | us-east-1f | t2.micro | Linux/UNIX |   0.003500 |
+| us-east-1 | us-east-1e | t2.micro | Linux/UNIX |   0.003500 |
+| us-east-1 | us-east-1d | t2.micro | Linux/UNIX |   0.003500 |
+| us-east-1 | us-east-1c | t2.micro | Linux/UNIX |   0.003500 |
+| us-east-1 | us-east-1b | t2.micro | Linux/UNIX |   0.003500 |
+| us-east-1 | us-east-1a | t2.micro | Linux/UNIX |   0.003500 |
+| us-west-1 | us-west-1b | t2.micro | Linux/UNIX |   0.004100 |
+| us-west-1 | us-west-1a | t2.micro | Linux/UNIX |   0.004100 |
+| us-west-2 | us-west-2c | t2.small | Linux/UNIX |   0.006900 |
+| us-west-2 | us-west-2b | t2.small | Linux/UNIX |   0.006900 |
+| us-west-2 | us-west-2a | t2.small | Linux/UNIX |   0.006900 |
+| us-east-2 | us-east-2c | t2.small | Linux/UNIX |   0.006900 |
+| us-east-2 | us-east-2b | t2.small | Linux/UNIX |   0.006900 |
+| us-east-2 | us-east-2a | t2.small | Linux/UNIX |   0.006900 |
+| us-east-1 | us-east-1e | t2.small | Linux/UNIX |   0.006900 |
+| us-east-1 | us-east-1d | t2.small | Linux/UNIX |   0.006900 |
+| us-east-1 | us-east-1c | t2.small | Linux/UNIX |   0.006900 |
+| us-east-1 | us-east-1a | t2.small | Linux/UNIX |   0.006900 |
+| us-east-1 | us-east-1b | t2.small | Linux/UNIX |   0.007700 |
+| us-east-1 | us-east-1f | t2.small | Linux/UNIX |   0.008200 |
+| us-west-1 | us-west-1b | t2.small | Linux/UNIX |   0.008300 |
+| us-west-1 | us-west-1a | t2.small | Linux/UNIX |   0.008300 |
++-----------+------------+----------+------------+------------+
 ```

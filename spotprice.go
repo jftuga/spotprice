@@ -25,7 +25,7 @@ import (
 	"github.com/olekukonko/tablewriter"
 )
 
-const version = "0.0.2"
+const version = "0.0.3"
 
 type spotPriceItem struct {
 	Region             string

@@ -1,7 +1,22 @@
 # spotprice
 Get AWS spot instance pricing
 
-Demo code is now working.
+
+
+### Usage
+
+```
+spotprice: Get AWS spot instance pricing
+usage: spotprice [options]
+       (required EC2 IAM Permissions: DescribeRegions, DescribeAvailabilityZones, DescribeSpotPriceHistory)
+
+  -d	run in debug mode
+  -inst string
+    	A comma-separated list of exact Instance Type names (eg: t2.small,t3a.micro,c5.large
+  -reg string
+    	A comma-separated list of regular-expressions to match regions (eg: us-*)
+  -v	show program version and then exit
+```
 
 ### EC2 IAM Permissions
 * DescribeAvailabilityZones

@@ -1,6 +1,8 @@
 # spotprice
 Get AWS spot instance pricing
 
+This program is similar to using `aws ec2 describe-spot-price-history` but is faster and has a few more options.
+
 The [Releases Page](https://github.com/jftuga/spotprice/releases) contains binaries for Windows, MacOS, Linux and FreeBSD.
 
 ### Usage

@@ -102,41 +102,37 @@ func getDesiredRegions(requested string) []string {
 	return removeDuplicatesUnordered(regions)
 }
 
-func createAWSInstanceTypes(instanceTypesList []string) []*string {
-	var instanceTypes []*string
-	for _, iType := range instanceTypesList {
-		instanceTypes = append(instanceTypes, aws.String(iType))
+func createAWSStringTypes(commaList string) []*string {
+	var stringTypes []*string
+	for _, item := range strings.Split(commaList, ",") {
+		item := strings.TrimSpace(item) // also strings.ToLower ??
+		stringTypes = append(stringTypes, aws.String(item))
 	}
-	return instanceTypes
+	return stringTypes
 }
 
 // https://docs.aws.amazon.com/sdk-for-go/api/service/ec2/#EC2.DescribeSpotPriceHistory
-func getSpotPriceHistory(region string, instanceTypes []string) ec2.DescribeSpotPriceHistoryOutput {
+func getSpotPriceHistory(region string, input ec2.DescribeSpotPriceHistoryInput) ec2.DescribeSpotPriceHistoryOutput {
+
 	utc, _ := time.LoadLocation("UTC")
 	endTime := time.Now().In(utc)
-	startTime := endTime.Add(-2 * time.Minute) // 2 minutes ago
-
-	input := &ec2.DescribeSpotPriceHistoryInput{
-		EndTime:       &endTime,
-		InstanceTypes: createAWSInstanceTypes(instanceTypes),
-		//InstanceTypes: nil,
-		ProductDescriptions: []*string{
-			aws.String("Linux/UNIX"),
-		},
-		StartTime: &startTime,
-	}
+	startTime := endTime.Add(-1 * time.Minute) // 1 minute ago
+	input.SetStartTime(startTime)
+	input.SetEndTime(endTime)
 
 	sess, _ := session.NewSession(&aws.Config{
 		Region: aws.String(region),
 	})
 
 	svc := ec2.New(sess)
-	result, err := svc.DescribeSpotPriceHistory(input)
+	result, err := svc.DescribeSpotPriceHistory(&input)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			default:
-				fmt.Fprintf(os.Stderr, "Error 1: region: %s, %s", region, aerr.Error())
+				if !strings.Contains(aerr.Error(), "AuthFailure:") {
+					fmt.Fprintf(os.Stderr, "Error 1: region: %s, %s", region, aerr.Error())
+				}
 			}
 		} else {
 			// Print the error, cast err to awserr.Error to get the Code and
@@ -146,6 +142,7 @@ func getSpotPriceHistory(region string, instanceTypes []string) ec2.DescribeSpot
 		item := new(ec2.DescribeSpotPriceHistoryOutput)
 		return *item
 	}
+	//fmt.Println("getSpotPriceHistory() result:", *result)
 
 	return *result
 }
@@ -167,13 +164,11 @@ func createSpotInfoArray(region string, data ec2.DescribeSpotPriceHistoryOutput)
 
 	for i := range data.SpotPriceHistory {
 		table = append(table, []string{*data.SpotPriceHistory[i].AvailabilityZone, *data.SpotPriceHistory[i].InstanceType, *data.SpotPriceHistory[i].ProductDescription, *data.SpotPriceHistory[i].SpotPrice})
-		/*
-			fmt.Printf("AvalabilityZone : %s\n", *data.SpotPriceHistory[i].AvailabilityZone)
-			fmt.Printf("InstanceType    : %s\n", *data.SpotPriceHistory[i].InstanceType)
-			fmt.Printf("ProductDesc     : %s\n", *data.SpotPriceHistory[i].ProductDescription)
-			fmt.Printf("SpotPrice       : %s\n", *data.SpotPriceHistory[i].SpotPrice)
-			fmt.Println("==========================================================")
-		*/
+		//fmt.Printf("AvalabilityZone : %s\n", *data.SpotPriceHistory[i].AvailabilityZone)
+		//fmt.Printf("InstanceType    : %s\n", *data.SpotPriceHistory[i].InstanceType)
+		//fmt.Printf("ProductDesc     : %s\n", *data.SpotPriceHistory[i].ProductDescription)
+		//fmt.Printf("SpotPrice       : %s\n", *data.SpotPriceHistory[i].SpotPrice)
+		//fmt.Println("==========================================================")
 	}
 	return table, items
 }

@@ -8,7 +8,6 @@ build:
     - darwin
     - linux
     - windows
-    - freebsd
   goarch:
     - amd64
     - arm
@@ -16,11 +15,6 @@ build:
   goarm:
       - 6
       - 7
-  ignore:
-    - goos: freebsd
-      goarch: arm
-    - goos: freebsd
-      goarch: mips
 archives:
   - name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ .Arm }}"
     format: tar.gz

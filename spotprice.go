@@ -11,13 +11,10 @@ Get AWS spot instance pricing
 package main
 
 import (
-	"bytes"
-	"encoding/gob"
 	"flag"
 	"fmt"
-	"io/ioutil"
-	"log"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -25,7 +22,7 @@ import (
 	"github.com/olekukonko/tablewriter"
 )
 
-const version = "0.0.3"
+const version = "0.1.0"
 
 type spotPriceItem struct {
 	Region             string
@@ -35,15 +32,18 @@ type spotPriceItem struct {
 	SpotPrice          string
 }
 
-func outputTable(allItems []spotPriceItem) {
+func outputTable(allItems []spotPriceItem, maxPrice float64) {
 	if 0 == len(allItems) {
 		fmt.Fprintf(os.Stderr, "\n\nError: No spot instances found.\n")
 		os.Exit(1)
 	}
+
 	var data [][]string
 	for _, i := range allItems {
-		item := []string{i.Region, i.AvailabilityZone, i.InstanceType, i.ProductDescription, i.SpotPrice}
-		data = append(data, item)
+		if pf(i.SpotPrice) <= maxPrice {
+			item := []string{i.Region, i.AvailabilityZone, i.InstanceType, i.ProductDescription, i.SpotPrice}
+			data = append(data, item)
+		}
 	}
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetHeader([]string{"Region", "AZ", "Instance", "Desc", "Spot Price"})
@@ -54,24 +54,42 @@ func outputTable(allItems []spotPriceItem) {
 	table.Render() // Send output
 }
 
-func inspectRegion(region string, instanceTypes string, describeCh chan []spotPriceItem) {
-	var vmTypes []string
-	vmTypes = strings.Split(instanceTypes, ",")
+func describeRegion(region string, regionSPH ec2.DescribeSpotPriceHistoryInput, describeCh chan []spotPriceItem) {
 	var spotResults ec2.DescribeSpotPriceHistoryOutput
-	spotResults = getSpotPriceHistory(region, vmTypes)
+	spotResults = getSpotPriceHistory(region, regionSPH)
+	//fmt.Println("describeRegion() spotResults:", spotResults)
 	_, items := createSpotInfoArray(region, spotResults)
-	//fmt.Println("items:", len(items))
 	describeCh <- items
+}
+
+func filterAvailabilityZones(allSpotsAllRegions []spotPriceItem, rawAZs string) []spotPriceItem {
+	filteredAZ := strings.Split(rawAZs, ",")
+	var filterSpotRegions []spotPriceItem
+	for _, zoneRE := range filteredAZ {
+		re, err := regexp.Compile(zoneRE)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "\n\nregexp: %s\n%s\n", zoneRE, err)
+			os.Exit(1)
+		}
+		for _, entry := range allSpotsAllRegions {
+			if re.MatchString(entry.AvailabilityZone) {
+				//fmt.Printf("%s matches %s\n", entry, zoneRE)
+				filterSpotRegions = append(filterSpotRegions, entry)
+			}
+		}
+	}
+	return filterSpotRegions
 }
 
 func main() {
 	argsVersion := flag.Bool("v", false, "show program version and then exit")
-	argsDebug := flag.Bool("d", false, "run in debug mode")
-	argsRegion := flag.String("reg", "", "A comma-separated list of regular-expressions to match regions (eg: us-*)")
-	//argsAZ := flag.String("az", "", "a regular-expression to match AZs")
-	argsInst := flag.String("inst", "", "A comma-separated list of exact Instance Type names (eg: t2.small,t3a.micro,c5.large")
-	//argsProd := flag.String("prod", "", "A comma-separated list of exact Instance Type names (eg: Windows,Linux/UNIX,SUSE Linux,Red Hat Enterprise Linux")
-	//argsOutput := flag.String("out", "", "Set output to 'csv' or 'json'")
+	argsRegion := flag.String("reg", "", "A comma-separated list of regular-expressions to match regions (eg: us-.*2b)")
+	argsAZ := flag.String("az", "", "A comma-separated list of regular-expressions to match AZs (eg: us-*1a)")
+	argsInst := flag.String("inst", "", "A comma-separated list of exact Instance Type names (eg: t2.small,t3a.micro,c5.large)")
+	argsProd := flag.String("prod", "", "A comma-separated list of exact, case-sensitive Product Names (eg: Windows,Linux/UNIX,SUSE Linux,Red Hat Enterprise Linux)")
+	argsLessThan := flag.Float64("less", 0.00, "Only output if price is less than or equal to given amount")
+	//argsOutput := flag.String("out", "", "Set output to 'csv' or 'json'") // to do
+	// maybe add option for AMI to generate a CF for spot instances
 
 	flag.Usage = func() {
 		pgmName := os.Args[0]
@@ -95,80 +113,45 @@ func main() {
 		os.Exit(1)
 	}
 
-	if 0 == len(*argsInst) {
-		fmt.Fprintf(os.Stderr, "\nThe -inst option is required.\nThis limitation will be removed in a future release.\n\n")
-		flag.Usage()
-		os.Exit(1)
-	}
-
 	timeStart := time.Now()
-	//*argsDebug = true
-
 	var allSpotsAllRegions []spotPriceItem
 
 	allRegions := getDesiredRegions(*argsRegion)
-	//allRegions = allRegions[:3]
-	//fmt.Printf("Regions: %v\n\n", allRegions)
 	if 0 == len(allRegions) {
 		fmt.Fprintf(os.Stderr, "\n\nError: No matching AWS regions.\n")
 		os.Exit(1)
 	}
 
-	if !*argsDebug {
-		describeCh := make(chan []spotPriceItem)
-		for _, region := range allRegions {
-			go inspectRegion(region, *argsInst, describeCh)
+	describeCh := make(chan []spotPriceItem)
+	for _, region := range allRegions {
+		//fmt.Println("main() region:", region)
+		regionSPH := new(ec2.DescribeSpotPriceHistoryInput)
+		if len(*argsInst) > 0 {
+			regionSPH.SetInstanceTypes(createAWSStringTypes(*argsInst))
 		}
+		if len(*argsProd) > 0 {
+			regionSPH.SetProductDescriptions(createAWSStringTypes(*argsProd))
+		}
+		go describeRegion(region, *regionSPH, describeCh)
+	}
 
-		for range allRegions {
-			table := <-describeCh
-			if len(table) > 0 {
-				for _, t := range table {
-					allSpotsAllRegions = append(allSpotsAllRegions, t)
-				}
+	for range allRegions {
+		table := <-describeCh
+		if len(table) > 0 {
+			for _, t := range table {
+				allSpotsAllRegions = append(allSpotsAllRegions, t)
 			}
 		}
 	}
 
-	if !*argsDebug {
-		var bufOut bytes.Buffer
-		enc := gob.NewEncoder(&bufOut)
-		err := enc.Encode(allSpotsAllRegions)
-		if err != nil {
-			log.Fatal("encode error:", err)
-			return
-		}
-
-		err = ioutil.WriteFile("current.dat", bufOut.Bytes(), 0600)
-		if err != nil {
-			log.Fatal("WriteFile error:", err)
-			return
-		}
-	} else {
-		bufIn, err := ioutil.ReadFile("current.dat")
-		if err != nil {
-			log.Fatal("ReadFile error:", err)
-			return
-		}
-		//fmt.Println("bufIn:", len(bufIn))
-
-		z := bytes.NewBuffer(bufIn)
-		dec := gob.NewDecoder(z)
-		err = dec.Decode(&allSpotsAllRegions)
-		if err != nil {
-			log.Fatal("decode error 1:", err)
-		}
+	if len(*argsAZ) > 0 {
+		allSpotsAllRegions = filterAvailabilityZones(allSpotsAllRegions, *argsAZ)
 	}
-
-	//fmt.Println("ok")
-
-	//fmt.Printf("%v\n", allSpotsAllRegions)
-	//sortRegion(allSpotsAllRegions, true)
 
 	sortAvailabilityZone(allSpotsAllRegions, false)
 	sortSpotPrice(allSpotsAllRegions, true)
 
-	outputTable(allSpotsAllRegions)
+	outputTable(allSpotsAllRegions, *argsLessThan)
 
 	elapsed := time.Since(timeStart)
 	fmt.Println()

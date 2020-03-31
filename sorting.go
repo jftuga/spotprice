@@ -1,13 +1,28 @@
 package main
 
-import "sort"
+import (
+	"fmt"
+	"os"
+	"sort"
+	"strconv"
+)
+
+// parseFloat
+func pf(s string) float64 {
+	f, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "\nError converting '%s' to float\n\n", s)
+		return 0.0000
+	}
+	return f
+}
 
 func sortSpotPrice(entry []spotPriceItem, ascending bool) {
 	sort.SliceStable(entry, func(i, j int) bool {
 		if ascending {
-			return entry[i].SpotPrice < entry[j].SpotPrice
+			return pf(entry[i].SpotPrice) < pf(entry[j].SpotPrice)
 		}
-		return entry[i].SpotPrice > entry[j].SpotPrice
+		return pf(entry[i].SpotPrice) > pf(entry[j].SpotPrice)
 	})
 }
 

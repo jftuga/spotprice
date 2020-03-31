@@ -22,7 +22,7 @@ import (
 	"github.com/olekukonko/tablewriter"
 )
 
-const version = "0.1.0"
+const version = "0.1.1"
 
 type spotPriceItem struct {
 	Region             string
@@ -105,11 +105,6 @@ func main() {
 	flag.Parse()
 	if *argsVersion {
 		fmt.Fprintf(os.Stderr, "version %s\n", version)
-		os.Exit(1)
-	}
-
-	if 0 == len(*argsRegion) && 0 == len(*argsInst) {
-		flag.Usage()
 		os.Exit(1)
 	}
 

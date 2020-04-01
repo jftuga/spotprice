@@ -38,10 +38,15 @@ func outputTable(allItems []spotPriceItem, maxPrice float64) {
 		os.Exit(1)
 	}
 
+	var returnAll = true
+	if maxPrice > 0.00000 {
+		returnAll = false
+	}
+
 	var data [][]string
 	for _, i := range allItems {
-		if pf(i.SpotPrice) <= maxPrice {
-			item := []string{i.Region, i.AvailabilityZone, i.InstanceType, i.ProductDescription, i.SpotPrice}
+		item := []string{i.Region, i.AvailabilityZone, i.InstanceType, i.ProductDescription, i.SpotPrice}
+		if (returnAll) || pf(i.SpotPrice) <= maxPrice {
 			data = append(data, item)
 		}
 	}
@@ -50,6 +55,10 @@ func outputTable(allItems []spotPriceItem, maxPrice float64) {
 
 	for _, v := range data {
 		table.Append(v)
+	}
+	if 0 == len(data) {
+		fmt.Fprintf(os.Stderr, "\n\nError: No spot instances at or below -max price of %f\n", maxPrice)
+		os.Exit(1)
 	}
 	table.Render() // Send output
 }
@@ -87,9 +96,8 @@ func main() {
 	argsAZ := flag.String("az", "", "A comma-separated list of regular-expressions to match AZs (eg: us-*1a)")
 	argsInst := flag.String("inst", "", "A comma-separated list of exact Instance Type names (eg: t2.small,t3a.micro,c5.large)")
 	argsProd := flag.String("prod", "", "A comma-separated list of exact, case-sensitive Product Names (eg: Windows,Linux/UNIX,SUSE Linux,Red Hat Enterprise Linux)")
-	argsLessThan := flag.Float64("less", 0.00, "Only output if price is less than or equal to given amount")
+	argsMaxPrice := flag.Float64("max", 0.00, "Only output if spot price is less than or equal to given amount")
 	//argsOutput := flag.String("out", "", "Set output to 'csv' or 'json'") // to do
-	// maybe add option for AMI to generate a CF for spot instances
 
 	flag.Usage = func() {
 		pgmName := os.Args[0]
@@ -103,9 +111,14 @@ func main() {
 	}
 
 	flag.Parse()
+	if 1 == len(os.Args) {
+		flag.Usage()
+		os.Exit(1)
+	}
+
 	if *argsVersion {
 		fmt.Fprintf(os.Stderr, "version %s\n", version)
-		os.Exit(1)
+		os.Exit(0)
 	}
 
 	timeStart := time.Now()
@@ -146,7 +159,7 @@ func main() {
 	sortAvailabilityZone(allSpotsAllRegions, false)
 	sortSpotPrice(allSpotsAllRegions, true)
 
-	outputTable(allSpotsAllRegions, *argsLessThan)
+	outputTable(allSpotsAllRegions, *argsMaxPrice)
 
 	elapsed := time.Since(timeStart)
 	fmt.Println()

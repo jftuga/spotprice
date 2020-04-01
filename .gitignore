@@ -16,4 +16,4 @@
 *.json
 *.bat
 *.txt
-
+dist/

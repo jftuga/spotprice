@@ -8,6 +8,7 @@ The [Releases Page](https://github.com/jftuga/spotprice/releases) contains binar
 ### Usage
 
 ```
+
 spotprice: Get AWS spot instance pricing
 usage: spotprice [options]
        (required EC2 IAM Permissions: DescribeRegions, DescribeAvailabilityZones, DescribeSpotPriceHistory)
@@ -16,8 +17,8 @@ usage: spotprice [options]
     	A comma-separated list of regular-expressions to match AZs (eg: us-*1a)
   -inst string
     	A comma-separated list of exact Instance Type names (eg: t2.small,t3a.micro,c5.large)
-  -less float
-    	Only output if price is less than or equal to given amount
+  -max float
+    	Only output if spot price is less than or equal to given amount
   -prod string
     	A comma-separated list of exact, case-sensitive Product Names (eg: Windows,Linux/UNIX,SUSE Linux,Red Hat Enterprise Linux)
   -reg string

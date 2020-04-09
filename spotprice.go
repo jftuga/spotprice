@@ -22,7 +22,7 @@ import (
 	"github.com/olekukonko/tablewriter"
 )
 
-const version = "0.1.2"
+const version = "0.1.3"
 
 type spotPriceItem struct {
 	Region             string
@@ -95,7 +95,7 @@ func main() {
 	argsRegion := flag.String("reg", "", "A comma-separated list of regular-expressions to match regions (eg: us-.*2b)")
 	argsAZ := flag.String("az", "", "A comma-separated list of regular-expressions to match AZs (eg: us-*1a)")
 	argsInst := flag.String("inst", "", "A comma-separated list of exact Instance Type names (eg: t2.small,t3a.micro,c5.large)")
-	argsProd := flag.String("prod", "", "A comma-separated list of exact, case-sensitive Product Names (eg: Windows,Linux/UNIX,SUSE Linux,Red Hat Enterprise Linux)")
+	argsProd := flag.String("prod", "", "A comma-separated list of exact, case-sensitive Product Names (eg: Windows,win,Linux/UNIX,lin,SUSE Linux,Red Hat Enterprise Linux)")
 	argsMaxPrice := flag.Float64("max", 0.00, "Only output if spot price is less than or equal to given amount")
 	//argsOutput := flag.String("out", "", "Set output to 'csv' or 'json'") // to do
 
@@ -138,6 +138,11 @@ func main() {
 			regionSPH.SetInstanceTypes(createAWSStringTypes(*argsInst))
 		}
 		if len(*argsProd) > 0 {
+			if *argsProd == "lin" {
+				*argsProd = "Linux/UNIX"
+			} else if *argsProd == "win" {
+				*argsProd = "Windows"
+			}
 			regionSPH.SetProductDescriptions(createAWSStringTypes(*argsProd))
 		}
 		go describeRegion(region, *regionSPH, describeCh)

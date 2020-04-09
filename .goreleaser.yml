@@ -11,9 +11,7 @@ build:
   goarch:
     - amd64
     - arm
-    - mips
   goarm:
-      - 6
       - 7
 archives:
   - name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ .Arm }}"

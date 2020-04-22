@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -12,23 +13,63 @@ import (
 	"github.com/aws/aws-sdk-go/aws/endpoints"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/olekukonko/tablewriter"
 )
 
-func printRegions() {
+// ListAllInfo list both AWS regions and then services
+func ListAllInfo() {
 	p := endpoints.AwsPartition()
-	fmt.Printf("partition: %v\n\n", p)
+	listRegions(p)
+	fmt.Println()
+	listServices(p)
+}
 
-	fmt.Println("Regions for", p.ID())
+// list all AWS regions
+func listRegions(p endpoints.Partition) {
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetHeader([]string{"Region"})
+
+	var sortedRegions []string
 	for id := range p.Regions() {
-		fmt.Println("*", id)
+		sortedRegions = append(sortedRegions, id)
 	}
+	sort.Strings(sortedRegions)
+	for _, region := range sortedRegions {
+		table.Append([]string{region})
+	}
+	table.Render()
+}
 
-	fmt.Println()
-	fmt.Println("Services for", p.ID())
-	fmt.Println()
-	for id := range p.Services() {
-		fmt.Println("*", id)
+// list all AWS services
+func listServices(p endpoints.Partition) {
+	const colWidth int = 3
+	i := 0
+	table := tablewriter.NewWriter(os.Stdout)
+	header := []string{}
+	for i = 0; i < colWidth; i++ {
+		header = append(header, "Service")
 	}
+	table.SetHeader(header)
+
+	var sortedServices []string
+	for id := range p.Services() {
+		sortedServices = append(sortedServices, id)
+	}
+	sort.Strings(sortedServices)
+
+	i = 0
+	col := []string{}
+	for _, service := range sortedServices {
+		if i == colWidth {
+			i = 0
+			table.Append(col)
+			col = nil
+		} else {
+			col = append(col, service)
+			i++
+		}
+	}
+	table.Render()
 }
 
 // remove any duplicate items in the given string slice

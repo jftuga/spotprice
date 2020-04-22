@@ -22,7 +22,7 @@ import (
 	"github.com/olekukonko/tablewriter"
 )
 
-const version = "0.1.3"
+const version = "1.0.0"
 
 type spotPriceItem struct {
 	Region             string
@@ -92,6 +92,7 @@ func filterAvailabilityZones(allSpotsAllRegions []spotPriceItem, rawAZs string) 
 
 func main() {
 	argsVersion := flag.Bool("v", false, "show program version and then exit")
+	argsList := flag.Bool("list", false, "List regions, services and then exit")
 	argsRegion := flag.String("reg", "", "A comma-separated list of regular-expressions to match regions (eg: us-.*2b)")
 	argsAZ := flag.String("az", "", "A comma-separated list of regular-expressions to match AZs (eg: us-*1a)")
 	argsInst := flag.String("inst", "", "A comma-separated list of exact Instance Type names (eg: t2.small,t3a.micro,c5.large)")
@@ -118,6 +119,11 @@ func main() {
 
 	if *argsVersion {
 		fmt.Fprintf(os.Stderr, "version %s\n", version)
+		os.Exit(0)
+	}
+
+	if *argsList {
+		ListAllInfo()
 		os.Exit(0)
 	}
 

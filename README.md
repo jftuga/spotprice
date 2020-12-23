@@ -36,7 +36,7 @@ usage: spotprice [options]
 
 #### Only return pricing for US and Canada regions; Windows OS, (these 4 instance types); less than or equal to $2.00; in AZs that end in either an a, b, or d (such as us-east-2b)
 
-* spotprice.exe -reg us-,ca- -prod Windows -inst r5.8xlarge,x1.32xlarge,x1e.32xlarge,c4.8xlarge -less 2.00 -az "(a|b|d)$"
+* spotprice.exe -reg us-,ca- -prod Windows -inst r5.8xlarge,x1.32xlarge,x1e.32xlarge,c4.8xlarge -max 2.00 -az "(a|b|d)$"
 
 ```
 +--------------+---------------+------------+---------+------------+

@@ -27,7 +27,7 @@ jobs:
       - name: run GoReleaser
         uses: goreleaser/goreleaser-action@v5
         with:
-          version: ~> nightly
+          version: nightly
           args: release --clean -p 2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

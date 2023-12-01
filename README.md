@@ -1,41 +1,48 @@
 # spotprice
-Get AWS spot instance pricing
+Quickly get AWS spot instance pricing
 
 This program is similar to using `aws ec2 describe-spot-price-history` but is faster and has a few more options.
 
 The [Releases Page](https://github.com/jftuga/spotprice/releases) contains binaries for Windows, MacOS, Linux and FreeBSD.
 
-### Usage
+## Usage
 
 ```
+spotprice.exe Quickly get AWS spot instance pricing across multiple regions
 
-spotprice: Get AWS spot instance pricing
-usage: spotprice [options]
+usage: .\spotprice.exe [options]
        (required EC2 IAM Permissions: DescribeRegions, DescribeAvailabilityZones, DescribeSpotPriceHistory)
 
+  -I string
+        A comma-separated list of regular-expressions to match Instance Type names, eg: t2.*,c5(a\.|n\.|\.)4xlarge
   -az string
-    	A comma-separated list of regular-expressions to match AZs (eg: us-*1a)
+        A comma-separated list of regular-expressions to match AZs (eg: us-*1a)
   -inst string
-    	A comma-separated list of exact Instance Type names (eg: t2.small,t3a.micro,c5.large)
+        A comma-separated list of exact Instance Type names, eg: t2.small,t3a.micro,c5.large
+  -l    List regions & instance types, then exit
   -max float
-    	Only output if spot price is less than or equal to given amount
+        Only output if spot price is less than or equal to given amount
   -prod string
-    	A comma-separated list of exact, case-sensitive Product Names (eg: Windows,Linux/UNIX,SUSE Linux,Red Hat Enterprise Linux)
+        A comma-separated list of exact, case-sensitive Product Names (eg: Windows,win,Linux/UNIX,lin,SUSE Linux,Red Hat Enterprise Linux)
+  -prof string
+        AWS profile to use (default "default")
   -reg string
-    	A comma-separated list of regular-expressions to match regions (eg: us-.*2b)
-  -v	show program version and then exit
-
+        A comma-separated list of regular-expressions to match regions, eg: us-.*-2,ap-.*east-\d
+  -v    show program version and then exit
 ```
 
-### EC2 IAM Permissions
+## Installation
+* macOS: `brew update; brew install jftuga/tap/spotprice`
+* Binaries for Linux, macOS and Windows are provided in the [releases](https://github.com/jftuga/spotprice/releases) section.
+
+## EC2 IAM Permissions
 * DescribeAvailabilityZones
 * DescribeRegions
 * DescribeSpotPriceHistory
 
-### Examples
+## Examples
 
-#### Only return pricing for US and Canada regions; Windows OS, (these 4 instance types); less than or equal to $2.00; in AZs that end in either an a, b, or d (such as us-east-2b)
-
+**Only return pricing for US and Canada regions; Windows OS, (these 4 instance types); less than or equal to $2.00; in AZs that end in either an a, b, or d (such as us-east-2b)**
 * `spotprice -reg us-,ca- -prod Windows -inst r5.8xlarge,x1.32xlarge,x1e.32xlarge,c4.8xlarge -max 2.00 -az "(a|b|d)$"`
 
 ```
@@ -57,8 +64,7 @@ usage: spotprice [options]
 +--------------+---------------+------------+---------+------------+
 ```
 
-#### Only return pricing for all US regions with instance types of either t2.micro or t2.small
-
+**Only return pricing for all US regions with instance types of either t2.micro or t2.small**
 * `spotprice -reg us -inst t2.micro,t2.small`
 
 ```
@@ -80,18 +86,5 @@ usage: spotprice [options]
 | us-west-1 | us-west-1b | t2.micro | Linux/UNIX |   0.004100 |
 | us-west-1 | us-west-1a | t2.micro | Linux/UNIX |   0.004100 |
 | us-west-2 | us-west-2c | t2.small | Linux/UNIX |   0.006900 |
-| us-west-2 | us-west-2b | t2.small | Linux/UNIX |   0.006900 |
-| us-west-2 | us-west-2a | t2.small | Linux/UNIX |   0.006900 |
-| us-east-2 | us-east-2c | t2.small | Linux/UNIX |   0.006900 |
-| us-east-2 | us-east-2b | t2.small | Linux/UNIX |   0.006900 |
-| us-east-2 | us-east-2a | t2.small | Linux/UNIX |   0.006900 |
-| us-east-1 | us-east-1e | t2.small | Linux/UNIX |   0.006900 |
-| us-east-1 | us-east-1d | t2.small | Linux/UNIX |   0.006900 |
-| us-east-1 | us-east-1c | t2.small | Linux/UNIX |   0.006900 |
-| us-east-1 | us-east-1a | t2.small | Linux/UNIX |   0.006900 |
-| us-east-1 | us-east-1b | t2.small | Linux/UNIX |   0.007700 |
-| us-east-1 | us-east-1f | t2.small | Linux/UNIX |   0.008200 |
-| us-west-1 | us-west-1b | t2.small | Linux/UNIX |   0.008300 |
-| us-west-1 | us-west-1a | t2.small | Linux/UNIX |   0.008300 |
 +-----------+------------+----------+------------+------------+
 ```

@@ -5,7 +5,6 @@ before:
 builds:
   - id: id1
     binary: spotprice
-    dir: ./cmd/spotprice
     ldflags:
       - -extldflags "-static" -s -w -X main.commit={{.Commit}} -X main.date={{.Date}} -X main.builtBy=goreleaser -X main.Version={{.Version}} -X main.Revision={{.ShortCommit}}
     env:

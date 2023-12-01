@@ -1,28 +1,82 @@
-project_name: spotprice
-build:
-  main: .
-  binary: spotprice
-  env:
-    - CGO_ENABLED=0
-  goos:
-    - darwin
-    - linux
-    - windows
-  goarch:
-    - amd64
-    - arm
-  goarm:
-      - 7
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: id1
+    binary: spotprice
+    ldflags:
+      - -extldflags "-static" -s -w -X main.commit={{.Commit}} -X main.date={{.Date}} -X main.builtBy=goreleaser -X main.Version={{.Version}} -X main.Revision={{.ShortCommit}}
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - freebsd
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+      - arm
+      - ppc64le
+    goarm:
+      - "7"
+    ignore:
+      - goos: freebsd
+        goarch: arm64
+      - goos: freebsd
+        goarch: arm
+      - goos: freebsd
+        goarch: ppc64le
+      - goos: darwin
+        goarch: arm
+      - goos: darwin
+        goarch: ppc64le
+
+  - id: id2
+    binary: spotprice
+    ldflags:
+      - -extldflags "-static" -s -w -X main.commit={{.Commit}} -X main.date={{.Date}} -X main.builtBy=goreleaser -X main.Version={{.Version}} -X main.Revision={{.ShortCommit}}
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - windows
+    goarch:
+      - amd64
+    hooks:
+      post:
+        - upx -9 "{{ .Path }}"
+
 archives:
-  - name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}{{ .Arm }}"
+  - name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     format: tar.xz
     format_overrides:
       - goos: windows
         format: zip
-    replacements:
-        darwin: macOS
     wrap_in_directory: true
+    files:
+      - LICENSE
+      - README.md
+
 checksum:
-  name_template: "{{ .ProjectName }}_{{ .Version }}--sha256_checksums.txt"
+  name_template: "{{ .ProjectName }}_{{ .Version }}--checksums.txt"
 release:
-  draft: true
+  draft: false
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+
+brews:
+  - name: spotprice
+    repository:
+      owner: jftuga
+      name: homebrew-tap
+    commit_author:
+      name: jftuga
+      email: jftuga@users.noreply.github.com
+    homepage: https://github.com/jftuga/spotprice
+    description: "Quickly get AWS spot instance pricing"
+    test: system "#{bin}/spotprice -v"
+    install: bin.install "spotprice"

@@ -32,6 +32,7 @@ usage: .\spotprice.exe [options]
 ```
 
 ## Installation
+* macOS: `brew update; brew install jftuga/tap/spotprice`
 * Binaries for Linux, macOS and Windows are provided in the [releases](https://github.com/jftuga/spotprice/releases) section.
 
 ## EC2 IAM Permissions

@@ -14,6 +14,10 @@ version 2
 * * suse => SUSE Linux
 * * win => Windows
 
+This code is feature completed, but still needs a few more things such as:
+* variable name refactoring for more consistency
+* better function documentation
+
 Examples
 ========
 go run .\spotprice.go -I "c\d.xlarge" -max 0.2 -prod "lin" -reg "us-.*-1" -az "[bf]$"
